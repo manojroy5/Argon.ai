@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client'
+import multer from 'multer'
 import { ApiError } from '../lib/api-error.js'
 
 export function notFound(request, _response, next) {
@@ -6,6 +7,18 @@ export function notFound(request, _response, next) {
 }
 
 export function errorHandler(error, request, response, _next) {
+  if (error instanceof multer.MulterError) {
+    const fileTooLarge = error.code === 'LIMIT_FILE_SIZE'
+    response.status(fileTooLarge ? 413 : 400).json({
+      error: {
+        code: fileTooLarge ? 'FILE_TOO_LARGE' : 'INVALID_MULTIPART_UPLOAD',
+        message: fileTooLarge ? 'The image exceeds the configured upload limit' : error.message,
+        requestId: request.id,
+      },
+    })
+    return
+  }
+
   if (error instanceof ApiError) {
     response.status(error.statusCode).json({
       error: {

@@ -1,7 +1,9 @@
 import { app } from './app.js'
 import { config } from './config.js'
 import { disconnectDatabase } from './lib/database.js'
+import { ensureStorageDirectories } from './lib/storage.js'
 
+await ensureStorageDirectories()
 const server = app.listen(config.PORT, () => {
   console.log(`Argon AI API listening on http://localhost:${config.PORT}`)
 })

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "dev:worker": "node --watch src/worker.js",
     "start": "node src/server.js",
+    "worker": "node src/worker.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -14,12 +16,17 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@techstark/opencv-js": "^4.10.0-release.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.0",
+    "file-type": "^22.0.2",
+    "heic-convert": "^2.1.0",
     "helmet": "^8.3.0",
+    "multer": "^2.3.0",
     "pg": "^8.23.0",
+    "sharp": "^0.35.4",
     "zod": "^4.5.2"
   },
   "engines": {

@@ -8,9 +8,10 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others --names FRONTEND,BACKEND --prefix-colors magenta,cyan \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
+    "dev": "concurrently --kill-others --names FRONTEND,BACKEND,WORKER --prefix-colors magenta,cyan,yellow \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\" \"npm run dev:worker --workspace backend\"",
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",
+    "dev:worker": "npm run dev:worker --workspace backend",
     "infra:up": "docker compose up -d postgres",
     "infra:down": "docker compose down",
     "db:migrate": "npm run db:migrate --workspace backend",
@@ -18,7 +19,7 @@
     "db:studio": "npm run db:studio --workspace backend",
     "build": "npm run build --workspace frontend",
     "lint": "npm run lint --workspace frontend",
-    "start": "npm run start --workspace backend"
+    "start": "concurrently --kill-others --names BACKEND,WORKER --prefix-colors cyan,yellow \"npm run start --workspace backend\" \"npm run worker --workspace backend\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

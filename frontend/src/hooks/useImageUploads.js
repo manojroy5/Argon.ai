@@ -35,12 +35,13 @@ function useImageUploads() {
     )))
   }, [])
 
-  const processUpload = useCallback(async (id) => {
+  const processUpload = useCallback(async (id, file) => {
     const controller = new AbortController()
     controllersRef.current.set(id, controller)
 
     try {
       const result = await processImageUpload({
+        file,
         signal: controller.signal,
         onProgress: (progress) => updateUpload(id, { progress }),
         onStage: (status) => updateUpload(id, {
@@ -58,7 +59,7 @@ function useImageUploads() {
       if (error.name !== 'AbortError') {
         updateUpload(id, {
           status: 'failed',
-          rejectionReasons: ['Upload failed. Check your connection and try again.'],
+          rejectionReasons: [error.message || 'Upload failed. Check your connection and try again.'],
         })
       }
     } finally {
@@ -97,7 +98,7 @@ function useImageUploads() {
       }
 
       updateUpload(upload.id, { status: 'ready', progress: 7, dimensions: result.dimensions })
-      await processUpload(upload.id)
+      await processUpload(upload.id, upload.file)
     }))
   }, [processUpload, updateUpload])
 
@@ -112,8 +113,10 @@ function useImageUploads() {
   }, [])
 
   const retryUpload = useCallback((id) => {
+    const upload = uploadsRef.current.find((candidate) => candidate.id === id)
+    if (!upload) return
     updateUpload(id, { status: 'ready', progress: 7, rejectionReasons: [] })
-    processUpload(id)
+    processUpload(id, upload.file)
   }, [processUpload, updateUpload])
 
   const clearByStatus = useCallback((statuses) => {

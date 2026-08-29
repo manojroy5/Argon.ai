@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { rm } from 'node:fs/promises'
 import { ApiError } from '../lib/api-error.js'
 import { prisma } from '../lib/database.js'
+import { commitTemporaryFile, removeStoredFile, resolveStorageKey } from '../lib/storage.js'
 
 const MIME_TO_FORMAT = {
   'image/jpeg': 'JPEG',
@@ -64,8 +66,7 @@ export async function createImage(input) {
   const format = MIME_TO_FORMAT[input.mimeType]
   assertExtensionMatches(input.originalFilename, format)
   const imageId = randomUUID()
-  const extension = getExtension(input.originalFilename)
-  const storageKey = `images/${imageId}/original.${extension}`
+  const storageKey = `originals/${imageId}.upload`
 
   return prisma.$transaction(async (transaction) => {
     const image = await transaction.imageAsset.create({
@@ -86,6 +87,65 @@ export async function createImage(input) {
 
     return serializeImage(image)
   })
+}
+
+export async function queueUploadedImage(id, file) {
+  if (!file) throw new ApiError(400, 'FILE_REQUIRED', 'Multipart field "file" is required')
+
+  const existing = await prisma.imageAsset.findFirst({ where: { id, deletedAt: null } })
+  if (!existing) {
+    await rm(file.path, { force: true })
+    throw new ApiError(404, 'IMAGE_NOT_FOUND', 'Image was not found')
+  }
+  if (existing.status !== 'PENDING_UPLOAD') {
+    await rm(file.path, { force: true })
+    throw new ApiError(409, 'UPLOAD_ALREADY_COMPLETED', 'This image is no longer waiting for a file')
+  }
+  if (BigInt(file.size) !== existing.sizeBytes) {
+    await rm(file.path, { force: true })
+    throw new ApiError(422, 'SIZE_MISMATCH', 'Uploaded bytes do not match the declared file size')
+  }
+
+  await commitTemporaryFile(file.path, existing.storageKey)
+
+  try {
+    const image = await prisma.$transaction(async (transaction) => {
+      const claimed = await transaction.imageAsset.updateMany({
+        where: { id, status: 'PENDING_UPLOAD', deletedAt: null },
+        data: { status: 'QUEUED', uploadedAt: new Date() },
+      })
+      if (claimed.count !== 1) {
+        throw new ApiError(409, 'UPLOAD_ALREADY_COMPLETED', 'This image is no longer waiting for a file')
+      }
+      await transaction.imageStatusEvent.createMany({
+        data: [
+          { imageId: id, status: 'UPLOADED', message: 'File stored securely on local storage' },
+          { imageId: id, status: 'QUEUED', message: 'Image queued for asynchronous validation' },
+        ],
+      })
+      return transaction.imageAsset.findUnique({
+        where: { id },
+        include: { rejections: true },
+      })
+    })
+    return serializeImage(image)
+  } catch (error) {
+    await removeStoredFile(existing.storageKey)
+    throw error
+  }
+}
+
+export async function getImageFile(id) {
+  const image = await prisma.imageAsset.findFirst({ where: { id, deletedAt: null } })
+  if (!image) throw new ApiError(404, 'IMAGE_NOT_FOUND', 'Image was not found')
+  if (!['ACCEPTED', 'REJECTED'].includes(image.status)) {
+    throw new ApiError(409, 'IMAGE_NOT_READY', 'Image processing has not completed')
+  }
+  const storageKey = image.convertedStorageKey || image.storageKey
+  return {
+    path: resolveStorageKey(storageKey),
+    mimeType: image.convertedStorageKey ? 'image/jpeg' : image.mimeType,
+  }
 }
 
 export async function listImages({ status, limit, cursor }) {
@@ -159,5 +219,10 @@ export async function deleteImage(id) {
     prisma.imageStatusEvent.create({
       data: { imageId: id, status: 'DELETED', message: 'Image metadata deleted' },
     }),
+  ])
+
+  await Promise.allSettled([
+    removeStoredFile(existing.storageKey),
+    removeStoredFile(existing.convertedStorageKey),
   ])
 }

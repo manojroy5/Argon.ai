@@ -46,7 +46,7 @@ model ImageAsset {
   width               Int?
   height              Int?
   status              ImageStatus        @default(PENDING_UPLOAD)
-  contentHash         String?             @unique @db.VarChar(128)
+  contentHash         String?             @db.VarChar(128)
   perceptualHash      String?             @db.VarChar(128)
   blurScore           Float?
   faceCount           Int?
@@ -62,6 +62,7 @@ model ImageAsset {
 
   @@index([status, createdAt(sort: Desc), id(sort: Desc)])
   @@index([perceptualHash])
+  @@index([contentHash])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
 }
 

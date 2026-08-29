@@ -1,10 +1,14 @@
 import { Router } from 'express'
+import { rm } from 'node:fs/promises'
 import { validate } from '../middleware/validate.js'
+import { uploadSingleImage } from '../middleware/upload.js'
 import {
   createImage,
   deleteImage,
   getImage,
+  getImageFile,
   listImages,
+  queueUploadedImage,
   updateImage,
 } from '../services/images.js'
 import {
@@ -28,6 +32,33 @@ imagesRouter.get('/', validate(listImagesSchema, 'query'), async (request, respo
 imagesRouter.get('/:id', validate(imageIdSchema, 'params'), async (request, response) => {
   response.json({ data: await getImage(request.validated.params.id) })
 })
+
+imagesRouter.get('/:id/file', validate(imageIdSchema, 'params'), async (request, response) => {
+  const file = await getImageFile(request.validated.params.id)
+  response.type(file.mimeType)
+  response.set({
+    'Cache-Control': 'private, max-age=3600',
+    'Content-Disposition': 'inline',
+    'X-Content-Type-Options': 'nosniff',
+  })
+  response.sendFile(file.path)
+})
+
+imagesRouter.post(
+  '/:id/upload',
+  validate(imageIdSchema, 'params'),
+  (request, response, next) => {
+    uploadSingleImage(request, response, (error) => {
+      if (!error) return next()
+      if (request.file?.path) rm(request.file.path, { force: true }).catch(() => {})
+      return next(error)
+    })
+  },
+  async (request, response) => {
+    const image = await queueUploadedImage(request.validated.params.id, request.file)
+    response.status(202).json({ data: image })
+  },
+)
 
 imagesRouter.patch(
   '/:id',
