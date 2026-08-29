@@ -1,0 +1,29 @@
+{
+  "name": "argon-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Image intake and validation platform",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others --names FRONTEND,BACKEND --prefix-colors magenta,cyan \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "infra:up": "docker compose up -d postgres",
+    "infra:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --workspace backend",
+    "db:generate": "npm run db:generate --workspace backend",
+    "db:studio": "npm run db:studio --workspace backend",
+    "build": "npm run build --workspace frontend",
+    "lint": "npm run lint --workspace frontend",
+    "start": "npm run start --workspace backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

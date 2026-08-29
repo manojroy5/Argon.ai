@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ImageStatus {
+  PENDING_UPLOAD
+  UPLOADED
+  QUEUED
+  PROCESSING
+  ACCEPTED
+  REJECTED
+  FAILED
+  DELETED
+}
+
+enum ImageFormat {
+  JPEG
+  PNG
+  HEIC
+}
+
+enum RejectionCode {
+  TOO_SMALL_FILE
+  TOO_SMALL_RESOLUTION
+  INVALID_FORMAT
+  TOO_SIMILAR
+  BLURRY
+  FACE_TOO_SMALL
+  MULTIPLE_FACES
+  NO_FACE
+  PROCESSING_ERROR
+}
+
+model ImageAsset {
+  id                  String             @id @default(uuid()) @db.Uuid
+  originalFilename    String             @db.VarChar(255)
+  storageKey          String             @unique @db.VarChar(512)
+  convertedStorageKey String?            @db.VarChar(512)
+  mimeType            String             @db.VarChar(100)
+  format              ImageFormat
+  sizeBytes           BigInt
+  width               Int?
+  height              Int?
+  status              ImageStatus        @default(PENDING_UPLOAD)
+  contentHash         String?             @unique @db.VarChar(128)
+  perceptualHash      String?             @db.VarChar(128)
+  blurScore           Float?
+  faceCount           Int?
+  faceAreaRatio       Float?
+  metadata            Json?
+  uploadedAt          DateTime?
+  processedAt         DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  rejections          ImageRejection[]
+  events              ImageStatusEvent[]
+
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([perceptualHash])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model ImageRejection {
+  id        String        @id @default(uuid()) @db.Uuid
+  imageId   String        @db.Uuid
+  code      RejectionCode
+  message   String        @db.VarChar(500)
+  details   Json?
+  createdAt DateTime      @default(now())
+  image     ImageAsset    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([imageId, createdAt])
+  @@index([code])
+}
+
+model ImageStatusEvent {
+  id        BigInt      @id @default(autoincrement())
+  imageId   String      @db.Uuid
+  status    ImageStatus
+  message   String?     @db.VarChar(500)
+  createdAt DateTime    @default(now())
+  image     ImageAsset  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([imageId, createdAt])
+  @@index([status, createdAt])
+}

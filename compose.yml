@@ -1,0 +1,22 @@
+name: argon-ai
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: argon
+      POSTGRES_USER: argon
+      POSTGRES_PASSWORD: argon_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - argon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argon -d argon"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  argon_postgres_data:
